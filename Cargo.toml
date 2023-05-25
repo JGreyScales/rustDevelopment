@@ -1,0 +1,13 @@
+[profile.dev]
+opt-level = 0
+overflow-checks = false
+
+[profile.release]
+opt-level = 3
+
+[workspace]
+resolver = "2"
+
+members = [
+    "Main",
+]
