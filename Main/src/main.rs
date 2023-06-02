@@ -28,10 +28,7 @@ pub struct Boxes{
     pub picked_up: bool,
     pub laying: bool
 }
-#[derive(Component)]
-struct text{
-    value:i8
-}
+
 
 fn main() {
     App::new()
@@ -125,7 +122,6 @@ fn tick(
     time: Res<Time>, 
     mut char_evr : EventReader<ReceivedCharacter>,
     mut query: Query<(&mut Player, &mut Transform)>,
-    mut commands: Commands,
 ){
 
     let (mut player, mut transform) = query.single_mut();
@@ -172,22 +168,26 @@ fn boxMovement(
     mut query: Query<(&mut Boxes, &mut Transform)>,
     mut playerQuery: Query<(&mut Player)>
 ){
+    let mut player = playerQuery.single_mut();
 
-    query.for_each_mut( |mut boxx| {
+    query.for_each_mut( |boxx| {
 
         let (mut boxy, mut transform) = boxx;
-        
-        if boxy.in_play == true && boxy.laying == false{
+        // println!("picked up: {}, BoxID: {}, carrying Box: {}", boxy.picked_up, boxy.box_value, player.carryingBox);
+        if boxy.in_play == true{
             if boxy.picked_up == true{
-
-            } else {
+                transform.translation.y = player.positiony;
+                transform.translation.x = player.positionx + 45.;
+            } else if boxy.laying == true {
+                // do nothing if the boxy is laying
+            }
+            else {
                 // move the box down the conveyor
                 if transform.translation.y > 283.{
                     transform.translation.y -= 10. * time.delta_seconds();
 
                 // if the box has gone off the screen game over. Set the players struct to turn off the game
                 } else if transform.translation.x > 677.{
-                    let mut player = playerQuery.single_mut();
                     player.gaming = false;
 
                 // move the box accross the conveyor
@@ -212,21 +212,28 @@ fn pickupBoxes(
 ){
             //         // if  (player - box).abs().floor() < 10; player is in range, this must be compared for both x and y
     let mut player: Mut<Player> = playerQuery.single_mut();
+    
     if player.interacting == true{
-        boxQuery.for_each_mut(|mut boxx|{
-            if (player.positionx - boxx.1.translation.x).abs().floor() < 25. && (player.positiony - boxx.1.translation.y).abs().floor() < 25.{
-                if player.carryingBox == false {
-                    boxx.0.picked_up = true;
-                    player.carryingBox = true;
-                    boxx.0.laying = false;
-                } else {
+        let mut pass: bool = false;
+        boxQuery.for_each_mut(|mut boxx: (Mut<Boxes>, Mut<Transform>)|{
+            if pass == true {
+
+            } else {
+                println!("Carrying Box: {}", player.carryingBox);
+                if (player.positionx - boxx.1.translation.x).abs().floor() < 30. && (player.positiony - boxx.1.translation.y).abs().floor() < 30. && player.carryingBox == false{
+                        println!("Box {} picked up", boxx.0.box_value);
+                        boxx.0.picked_up = true;
+                        boxx.0.laying = true;
+                        player.carryingBox = true;
+                        pass = true;
+    
+                }
+                else if player.carryingBox == true {
                     boxx.0.picked_up = false;
                     player.carryingBox = false;
-                    boxx.0.laying = true;
-                }
+            }
 
             }
-            // else {}
         })
     }
     
