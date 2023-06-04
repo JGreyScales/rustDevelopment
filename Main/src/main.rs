@@ -1,5 +1,5 @@
 
-use bevy::{prelude::*};
+use bevy::{prelude::*, transform};
 use bevy::{app::App, DefaultPlugins};
 
 #[derive(Component)]
@@ -8,6 +8,10 @@ struct Camera;
 #[derive(Component)]
 struct Background;
 
+
+#[derive(Component)]
+struct scoretext;
+
 #[derive(Component, Clone)]
 pub struct Player{
     pub animation: i8,
@@ -15,7 +19,8 @@ pub struct Player{
     pub positionx: f32,
     pub positiony: f32,
     pub carryingBox: bool,
-    pub interacting: bool
+    pub interacting: bool,
+    pub score: i16
 }
 
 #[derive(Component)]
@@ -28,7 +33,6 @@ pub struct Boxes{
     pub picked_up: bool,
     pub laying: bool
 }
-
 
 fn main() {
     App::new()
@@ -51,10 +55,12 @@ fn main() {
         .add_system(tick)
         .add_system(boxMovement)
         .add_system(pickupBoxes)
+        .add_system(text_update_system)
         .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
+
     // create the 2d camera
     commands.spawn((
         Camera2dBundle::default(),
@@ -64,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
 
     // create the background image
     commands.spawn(SpriteBundle {
-        transform: Transform {scale: Vec3::new(1.125, 1.105, 1.), ..Default::default() },
+        transform: Transform {scale: Vec3::new(1.125, 1.105, -3.), ..Default::default() },
         texture: asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/Background.png"),
         ..default()
     });
@@ -84,9 +90,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
             positionx: -600.,
             positiony: 100.,
             carryingBox: false,
-            interacting: false
+            interacting: false,
+            score: 0
         });
 
+        // creates an even amount of orange and banana boxes based on the uper limit - 1
         let mut texturePath: &str = "";
         let mut boxType = false;
         let mut inPlay = true;
@@ -101,7 +109,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
     
             }
             commands.spawn(SpriteBundle{
-                transform: Transform {translation: Vec3::new(-400., 330., 1.), scale: Vec3::new(0.2, 0.2, 1.), ..default()},
+                transform: Transform {translation: Vec3::new(-400., 330., 1.), scale: Vec3::new(0.2, 0.2, -1.), ..default()},
                 texture: asset_server.load(texturePath),
                 ..default()
             })
@@ -115,7 +123,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
             });
         }
 
-
+        // Text with multiple sections
+        commands.spawn((
+            // Create a TextBundle that has a Text with a list of sections.
+            TextBundle::from_sections([
+                TextSection::new(
+                    "Score\n0",
+                    TextStyle {
+                        font: asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/RetroChildRegular-7BnMl.ttf"),
+                        font_size: 60.0,
+                        color: Color::BLACK,
+                    },
+                ),
+            ]),
+            scoretext,
+        )
+    )
+    .insert(ZIndex::Global(42));
 }
 
 fn tick(
@@ -166,25 +190,41 @@ fn tick(
 fn boxMovement(
     time: Res<Time>,
     mut query: Query<(&mut Boxes, &mut Transform)>,
-    mut playerQuery: Query<(&mut Player)>
+    mut playerQuery: Query<(&mut Player)>,
+    asset_server: Res<AssetServer>,
+    audio: Res<Audio>,
 ){
     let mut player = playerQuery.single_mut();
 
     query.for_each_mut( |boxx| {
 
         let (mut boxy, mut transform) = boxx;
-        // println!("picked up: {}, BoxID: {}, carrying Box: {}", boxy.picked_up, boxy.box_value, player.carryingBox);
         if boxy.in_play == true{
             if boxy.picked_up == true{
                 transform.translation.y = player.positiony;
                 transform.translation.x = player.positionx + 45.;
             } else if boxy.laying == true {
                 // do nothing if the boxy is laying
+                if transform.translation.y < -105. {
+                    if transform.translation.x < -229. && transform.translation.x > -392. && boxy.box_type == false{
+                        println!("Box Scored");
+                        boxy.in_play = false;
+                        player.score += 1;
+                        audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/1up.ogg"));
+                    } else if  transform.translation.x < -229. && transform.translation.x > -392. && boxy.box_type == true{
+                        println!("Box Scored");
+                        boxy.in_play = false;
+                        player.score += 1;
+                        audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/1up.ogg"));
+                    }
+                }
             }
             else {
                 // move the box down the conveyor
                 if transform.translation.y > 283.{
                     transform.translation.y -= 10. * time.delta_seconds();
+
+                   
 
                 // if the box has gone off the screen game over. Set the players struct to turn off the game
                 } else if transform.translation.x > 677.{
@@ -197,7 +237,7 @@ fn boxMovement(
             }
 
         } else {
-            transform.translation.z = -1.
+            transform.translation.z = -10.
         }
 
 
@@ -208,7 +248,9 @@ fn boxMovement(
 
 fn pickupBoxes(
     mut playerQuery: Query<&mut Player>,
-    mut boxQuery: Query<(&mut Boxes, &mut Transform)>
+    mut boxQuery: Query<(&mut Boxes, &mut Transform)>,
+    asset_server: Res<AssetServer>,
+    audio: Res<Audio>
 ){
             //         // if  (player - box).abs().floor() < 10; player is in range, this must be compared for both x and y
     let mut player: Mut<Player> = playerQuery.single_mut();
@@ -219,22 +261,36 @@ fn pickupBoxes(
             if pass == true {
 
             } else {
-                println!("Carrying Box: {}", player.carryingBox);
-                if (player.positionx - boxx.1.translation.x).abs().floor() < 30. && (player.positiony - boxx.1.translation.y).abs().floor() < 30. && player.carryingBox == false{
+                if (player.positionx - boxx.1.translation.x).abs().floor() < 30. && (player.positiony - boxx.1.translation.y).abs().floor() < 30. && player.carryingBox == false && boxx.0.in_play == true{
                         println!("Box {} picked up", boxx.0.box_value);
+                        audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/pickupbox.ogg"));
                         boxx.0.picked_up = true;
                         boxx.0.laying = true;
                         player.carryingBox = true;
                         pass = true;
     
                 }
-                else if player.carryingBox == true {
+                else if player.carryingBox == true && boxx.0.picked_up == true{
+                    println!("Box {} dropped", boxx.0.box_value);
+                    audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/dropbox.ogg"));
                     boxx.0.picked_up = false;
                     player.carryingBox = false;
+                    pass = true
             }
 
             }
         })
     }
     
+}
+
+fn text_update_system(
+    mut query: Query<&mut Text, With<scoretext>>,
+    mut playerquery: Query<&mut Player>
+) {
+
+    let player: Mut<Player> = playerquery.single_mut();
+    for mut text in &mut query {
+                text.sections[0].value = format!("Score\n{}", player.score);
+    }
 }
