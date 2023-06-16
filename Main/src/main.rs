@@ -34,7 +34,8 @@ pub struct Boxes{
 
 #[derive(Component)]
 pub struct Timer{
-    pub time: f64
+    pub time: f64,
+    pub delay: f64
 }
 fn main() {
     App::new()
@@ -62,7 +63,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut timerQuery: Query<(&mut Timer)>){
 
     // create the 2d camera
     commands.spawn((
@@ -143,6 +144,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
         )
     )
     .insert(ZIndex::Global(42));
+
+
+    let mut timer: Mut<Timer> = timerQuery.single_mut();
+    timer.delay = 15.;
 }
 
 fn tick(
