@@ -1,5 +1,4 @@
-
-use bevy::{prelude::*, transform};
+use bevy::{prelude::*};
 use bevy::{app::App, DefaultPlugins};
 
 #[derive(Component)]
@@ -7,7 +6,6 @@ struct Camera;
 
 #[derive(Component)]
 struct Background;
-
 
 #[derive(Component)]
 struct scoretext;
@@ -34,6 +32,10 @@ pub struct Boxes{
     pub laying: bool
 }
 
+#[derive(Component)]
+pub struct Timer{
+    pub time: f64
+}
 fn main() {
     App::new()
     // bevy
@@ -56,6 +58,7 @@ fn main() {
         .add_system(boxMovement)
         .add_system(pickupBoxes)
         .add_system(text_update_system)
+        .add_system(respawn_boxes)
         .run();
 }
 
@@ -80,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
     commands
         .spawn( SpriteBundle {
         visibility: Visibility::Visible,
-        transform: Transform {translation: Vec3::new(-600., 100., 2.), scale: Vec3::new(0.25, 0.25, 1.), rotation: Quat::from_rotation_z(3. * 1.570796)},
+        transform: Transform {translation: Vec3::new(-600., 100., 2.), scale: Vec3::new(0.25, 0.25, 1.), rotation: Quat::from_rotation_z(0. * 1.570796)},
         texture: asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/person.png"),
         ..default()
         })
@@ -158,6 +161,7 @@ fn tick(
         player.interacting = false;
     } else {
         for event in char_evr.iter() {
+            println!("x:{}, y:{}", transform.translation.x, transform.translation.y);
             // player interaction handler + code above
             if event.char == 'e'{
                 player.interacting = true;
@@ -165,16 +169,16 @@ fn tick(
     
             // player movement
             // Todo, remove frame skip issue
-            if event.char == 'w'{
+            if event.char == 'w' && player.positiony < 327.{
                 transform.translation.y += 300. * time.delta_seconds();
     
-            } else if event.char == 's'{
+            } else if event.char == 's' && player.positiony > -320.{
                 transform.translation.y -= 300. * time.delta_seconds();
             }
     
-            if event.char == 'd' {
+            if event.char == 'd' && player.positionx <  620.{
                 transform.translation.x += 300. * time.delta_seconds();
-            } else if event.char == 'a' {
+            } else if event.char == 'a' && player.positionx > -616.{
                 transform.translation.x -= 300. * time.delta_seconds();
             }
     
@@ -239,10 +243,7 @@ fn boxMovement(
         } else {
             transform.translation.z = -10.
         }
-
-
-    }
-    );
+    });
 }
 
 
@@ -281,7 +282,6 @@ fn pickupBoxes(
             }
         })
     }
-    
 }
 
 fn text_update_system(
@@ -293,4 +293,26 @@ fn text_update_system(
     for mut text in &mut query {
                 text.sections[0].value = format!("Score\n{}", player.score);
     }
+}
+
+
+fn respawn_boxes(
+    mut boxQuery: Query<(&mut Boxes, &mut Transform)>,
+    mut timerQuery: Query<(&mut Timer)>,
+    delta: Res<Time>,
+){
+
+    let mut outOfPlay: Vec<u8> = Vec::new();
+    let timer: Mut<Timer> = timerQuery.single_mut();
+
+    boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
+        // for each box, if not in play; add to outOfPlay. 
+    });
+    //Select random number from outOfPlay 20 * Sin(timer / deltatime * 42 - timer)
+    //place box at correct position
+    //render box to scene
+    // decrease delay by using a log function to create a exponentionally small curve in timing
+    // move timer down
+
+
 }
