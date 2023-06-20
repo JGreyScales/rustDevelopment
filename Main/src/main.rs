@@ -18,14 +18,15 @@ pub struct Player{
     pub positiony: f32,
     pub carryingBox: bool,
     pub interacting: bool,
-    pub score: i16
+    pub score: i16,
+    pub rotation: u8
 }
 
 #[derive(Component)]
 pub struct Boxes{
     // if boxType = true, Box is banana; this will be loaded accordingly
     pub box_type: bool,
-    pub box_value: i32,
+    pub box_value: u8,
     pub in_play: bool,
     pub speed: f32,
     pub picked_up: bool,
@@ -63,7 +64,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut timerQuery: Query<(&mut Timer)>){
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
 
     // create the 2d camera
     commands.spawn((
@@ -71,6 +72,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut timerQuery:
         Camera
     ));
 
+    commands.spawn(Timer{
+        time: 0.,
+        delay: 15.
+    });
 
     // create the background image
     commands.spawn(SpriteBundle {
@@ -84,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut timerQuery:
     commands
         .spawn( SpriteBundle {
         visibility: Visibility::Visible,
-        transform: Transform {translation: Vec3::new(-600., 100., 2.), scale: Vec3::new(0.25, 0.25, 1.), rotation: Quat::from_rotation_z(0. * 1.570796)},
+        transform: Transform {translation: Vec3::new(-600., 100., 2.), scale: Vec3::new(0.25, 0.25, 1.), rotation: Quat::from_rotation_z(-1. * 1.570796)},
         texture: asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/person.png"),
         ..default()
         })
@@ -95,7 +100,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut timerQuery:
             positiony: 100.,
             carryingBox: false,
             interacting: false,
-            score: 0
+            score: 0,
+            rotation: 1
         });
 
         // creates an even amount of orange and banana boxes based on the uper limit - 1
@@ -146,9 +152,44 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut timerQuery:
     .insert(ZIndex::Global(42));
 
 
-    let mut timer: Mut<Timer> = timerQuery.single_mut();
-    timer.delay = 15.;
 }
+
+
+
+// returns a float 32
+fn smartRotation(
+    mut playerRotation: u8,
+    targetRotation: u8
+) -> f32 {
+
+
+// super lazy but efficent check to make sure the player isn't already facing the target direction
+    if playerRotation == targetRotation{
+        return 0.;
+    }
+
+
+    // for 1 -> 3 turns (A 270 when multipled by 90)
+    for _x in 1..4{
+
+
+        // increase the player rotation
+        playerRotation += 1;
+
+        // peform a loop over so that we aren't infinitely counting (overflow fun zone)
+        if playerRotation == 4 {
+            playerRotation = 0;
+        }
+
+        // if player rotation is equal to supplied target rotation; return the total amount of turns taken.
+        if playerRotation == targetRotation{
+            return -_x as f32;
+        }
+
+    }
+    return 404.;
+}
+
 
 fn tick(
     time: Res<Time>, 
@@ -175,15 +216,27 @@ fn tick(
             // player movement
             // Todo, remove frame skip issue
             if event.char == 'w' && player.positiony < 327.{
+                transform.rotate_z(smartRotation(player.rotation, 0) * 1.570796);
+                player.rotation = 0;
+
                 transform.translation.y += 300. * time.delta_seconds();
     
             } else if event.char == 's' && player.positiony > -320.{
+                transform.rotate_z(smartRotation(player.rotation, 2) * 1.570796);
+                player.rotation = 2;
+
                 transform.translation.y -= 300. * time.delta_seconds();
             }
     
             if event.char == 'd' && player.positionx <  620.{
+                transform.rotate_z(smartRotation(player.rotation, 1) * 1.570796);
+                player.rotation = 1;
+
                 transform.translation.x += 300. * time.delta_seconds();
             } else if event.char == 'a' && player.positionx > -616.{
+                transform.rotate_z(smartRotation(player.rotation, 3) * 1.570796);
+                player.rotation = 3;
+
                 transform.translation.x -= 300. * time.delta_seconds();
             }
     
@@ -199,7 +252,7 @@ fn tick(
 fn boxMovement(
     time: Res<Time>,
     mut query: Query<(&mut Boxes, &mut Transform)>,
-    mut playerQuery: Query<(&mut Player)>,
+    mut playerQuery: Query<&mut Player>,
     asset_server: Res<AssetServer>,
     audio: Res<Audio>,
 ){
@@ -312,12 +365,29 @@ fn respawn_boxes(
 
     boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
         // for each box, if not in play; add to outOfPlay. 
+        if true == boxx.0.in_play{
+            outOfPlay.push(boxx.0.box_value)
+        }
+    });
+
+
+    let maxValue = outOfPlay.len() as f64;
+    let boxChosen = (maxValue * f64::sin(timer.time / delta.delta_seconds_f64())).round();
+
+    boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
+        if boxx.0.box_value as f64 == boxChosen{
+            boxx.1.translation.x = -400.;
+            boxx.1.translation.y = 330.;
+            boxx.1.translation.z = 1.;
+            boxx.0.in_play = true;
+            return;
+        }
     });
     //Select random number from outOfPlay 20 * Sin(timer / deltatime * 42 - timer)
     //place box at correct position
     //render box to scene
     // decrease delay by using a log function to create a exponentionally small curve in timing
-    // move timer down
+    // move timer down  
 
 
 }
