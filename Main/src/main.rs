@@ -1,3 +1,4 @@
+
 use bevy::{prelude::*};
 use bevy::{app::App, DefaultPlugins};
 
@@ -36,7 +37,8 @@ pub struct Boxes{
 #[derive(Component)]
 pub struct Timer{
     pub time: f64,
-    pub delay: f64
+    pub delay: f64,
+    pub count: f64
 }
 fn main() {
     App::new()
@@ -46,6 +48,7 @@ fn main() {
             title: "Sorting Boxes".into(),
             resolution: (1297., 716.).into(),
             resizable: false,
+            mode: bevy::window::WindowMode::Windowed,
             focused: true,
             ..default()
         }),
@@ -73,8 +76,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
     ));
 
     commands.spawn(Timer{
-        time: 0.,
-        delay: 15.
+        time: 15.,
+        delay: 15.,
+        count: 0.
     });
 
     // create the background image
@@ -118,6 +122,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
                 texturePath = "C:/Programming/Python/Rust/Gather/projectAssets/orange.png";
     
             }
+
             commands.spawn(SpriteBundle{
                 transform: Transform {translation: Vec3::new(-400., 330., 1.), scale: Vec3::new(0.2, 0.2, -1.), ..default()},
                 texture: asset_server.load(texturePath),
@@ -207,7 +212,7 @@ fn tick(
         player.interacting = false;
     } else {
         for event in char_evr.iter() {
-            println!("x:{}, y:{}", transform.translation.x, transform.translation.y);
+            // println!("x:{}, y:{}", transform.translation.x, transform.translation.y);
             // player interaction handler + code above
             if event.char == 'e'{
                 player.interacting = true;
@@ -273,7 +278,7 @@ fn boxMovement(
                         boxy.in_play = false;
                         player.score += 1;
                         audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/1up.ogg"));
-                    } else if  transform.translation.x < -229. && transform.translation.x > -392. && boxy.box_type == true{
+                    } else if  transform.translation.x < 369. && transform.translation.x > 152. && boxy.box_type == true{
                         println!("Box Scored");
                         boxy.in_play = false;
                         player.score += 1;
@@ -311,7 +316,7 @@ fn pickupBoxes(
     asset_server: Res<AssetServer>,
     audio: Res<Audio>
 ){
-            //         // if  (player - box).abs().floor() < 10; player is in range, this must be compared for both x and y
+        // if  (player - box).abs().floor() < 10; player is in range, this must be compared for both x and y
     let mut player: Mut<Player> = playerQuery.single_mut();
     
     if player.interacting == true{
@@ -344,50 +349,72 @@ fn pickupBoxes(
 
 fn text_update_system(
     mut query: Query<&mut Text, With<scoretext>>,
-    mut playerquery: Query<&mut Player>
-) {
+    mut playerquery: Query<&mut Player>,
+    mut timerQuery: Query<&mut Timer>,
 
+
+) {
+    let mut timer = timerQuery.single_mut();
     let player: Mut<Player> = playerquery.single_mut();
     for mut text in &mut query {
-                text.sections[0].value = format!("Score\n{}", player.score);
+                text.sections[0].value = format!("Score\n{}\nTime\n{}", player.score, timer.count.floor());
     }
 }
 
 
 fn respawn_boxes(
     mut boxQuery: Query<(&mut Boxes, &mut Transform)>,
-    mut timerQuery: Query<(&mut Timer)>,
+    mut timerQuery: Query<&mut Timer>,
     delta: Res<Time>,
 ){
 
-    let mut outOfPlay: Vec<u8> = Vec::new();
-    let timer: Mut<Timer> = timerQuery.single_mut();
+    let mut timer = timerQuery.single_mut();
 
-    boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
-        // for each box, if not in play; add to outOfPlay. 
-        if true == boxx.0.in_play{
-            outOfPlay.push(boxx.0.box_value)
+    if  0. > timer.time{
+
+        let mut outOfPlay: Vec<u8> = Vec::new();
+
+        boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
+            // for each box, if not in play; add to outOfPlay. 
+            if false == boxx.0.in_play{
+                outOfPlay.push(boxx.0.box_value);
+            }
+        });
+    
+    
+        let maxValue = outOfPlay.len() as f64;
+    
+        if 0. < maxValue{
+            let boxChosen =  (maxValue * f64::sin(rand::random::<f64>()) - 1.).round() as usize;
+    
+            boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
+                if boxx.0.box_value == outOfPlay[boxChosen]{
+                    boxx.1.translation.x = -400.;
+                    boxx.1.translation.y = 330.;
+                    boxx.1.translation.z = 1.;
+                    boxx.0.in_play = true;
+                    boxx.0.laying = false;
+                    boxx.0.picked_up = false;
+                }
+            });
+
+        timer.time = timer.delay;
+        
+        // move the time delay down by 0.5 each time. By doing it this method I do not need to store the value of x; I can figure out what x was
+        // by deconstructing previous value
+        if 3.5 < timer.delay{
+            timer.delay = -0.5 * ((15.5 - timer.delay + 0.5)/0.5) + 15.5;
         }
-    });
 
+    // if timer is not counted down
+    } 
 
-    let maxValue = outOfPlay.len() as f64;
-    let boxChosen = (maxValue * f64::sin(timer.time / delta.delta_seconds_f64())).round();
+    }else{
+        timer.time -= delta.raw_delta_seconds_f64();
+    }
 
-    boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
-        if boxx.0.box_value as f64 == boxChosen{
-            boxx.1.translation.x = -400.;
-            boxx.1.translation.y = 330.;
-            boxx.1.translation.z = 1.;
-            boxx.0.in_play = true;
-            return;
-        }
-    });
-    //Select random number from outOfPlay 20 * Sin(timer / deltatime * 42 - timer)
-    //place box at correct position
-    //render box to scene
-    // decrease delay by using a log function to create a exponentionally small curve in timing
-    // move timer down  
+    timer.count += delta.raw_delta_seconds_f64();
+
 
 
 }
