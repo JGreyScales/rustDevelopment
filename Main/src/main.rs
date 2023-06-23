@@ -1,4 +1,6 @@
 
+
+// I am aware abosulute paths will not work; idc rn since this is just testing purposes. before I compile and "release" this project I will correct it
 use bevy::{prelude::*};
 use bevy::{app::App, DefaultPlugins};
 
@@ -38,7 +40,8 @@ pub struct Boxes{
 pub struct Timer{
     pub time: f64,
     pub delay: f64,
-    pub count: f64
+    pub count: f64,
+    pub x: u8
 }
 fn main() {
     App::new()
@@ -78,7 +81,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
     commands.spawn(Timer{
         time: 15.,
         delay: 15.,
-        count: 0.
+        count: 0.,
+        x: 1
     });
 
     // create the background image
@@ -267,9 +271,19 @@ fn boxMovement(
 
         let (mut boxy, mut transform) = boxx;
         if boxy.in_play == true{
+
+            // rotates the box in accordance to the players rotation; bit messy, prob could've done this better but I just want to finish this project at this point :(
             if boxy.picked_up == true{
                 transform.translation.y = player.positiony;
-                transform.translation.x = player.positionx + 45.;
+                transform.translation.x = player.positionx;
+                match player.rotation{
+                    0=> transform.translation.y += 45.,
+                    1=> transform.translation.x += 45.,
+                    2=> transform.translation.y -= 45.,
+                    3=> transform.translation.x -= 45.,
+                    _=>println!("Error in box rotation, 001"),
+                  };
+
             } else if boxy.laying == true {
                 // do nothing if the boxy is laying
                 if transform.translation.y < -105. {
@@ -284,14 +298,16 @@ fn boxMovement(
                         player.score += 1;
                         audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/1up.ogg"));
                     }
+                 // failsafe for if box is placed out of bounds
+                }else if transform.translation.y > 331. || transform.translation.y < -320. || transform.translation.x >  620. || transform.translation.x < -616.{
+                    boxy.in_play = false;
                 }
             }
+
             else {
                 // move the box down the conveyor
                 if transform.translation.y > 283.{
                     transform.translation.y -= 10. * time.delta_seconds();
-
-                   
 
                 // if the box has gone off the screen game over. Set the players struct to turn off the game
                 } else if transform.translation.x > 677.{
@@ -335,7 +351,7 @@ fn pickupBoxes(
     
                 }
                 else if player.carryingBox == true && boxx.0.picked_up == true{
-                    println!("Box {} dropped", boxx.0.box_value);
+                    println!("Box {} dropped {}", boxx.0.box_value, boxx.1.translation.x);
                     audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/dropbox.ogg"));
                     boxx.0.picked_up = false;
                     player.carryingBox = false;
@@ -400,10 +416,10 @@ fn respawn_boxes(
 
         timer.time = timer.delay;
         
-        // move the time delay down by 0.5 each time. By doing it this method I do not need to store the value of x; I can figure out what x was
-        // by deconstructing previous value
-        if 3.5 < timer.delay{
-            timer.delay = -0.5 * ((15.5 - timer.delay + 0.5)/0.5) + 15.5;
+        // move the time delay down by 0.5 each time.
+        if 29 > timer.x{
+            timer.delay = 15. * f64::cos((3. * timer.x as f64) * 0.01745329);
+            timer.x += 1;
         }
 
     // if timer is not counted down
