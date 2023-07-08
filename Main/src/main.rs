@@ -3,7 +3,7 @@
 // I am aware abosulute paths will not work; idc rn since this is just testing purposes. before I compile and "release" this project I will correct it
 use bevy::{prelude::*};
 use bevy::{app::App, DefaultPlugins};
-
+=
 #[derive(Component)]
 struct Camera;
 
@@ -71,7 +71,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
-
     // create the 2d camera
     commands.spawn((
         Camera2dBundle::default(),
@@ -88,7 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
     // create the background image
     commands.spawn(SpriteBundle {
         transform: Transform {scale: Vec3::new(1.125, 1.105, -3.), ..Default::default() },
-        texture: asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/Background.png"),
+        texture: asset_server.load("../../projectAssets/Background.png"),
         ..default()
     });
 
@@ -98,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
         .spawn( SpriteBundle {
         visibility: Visibility::Visible,
         transform: Transform {translation: Vec3::new(-600., 100., 2.), scale: Vec3::new(0.25, 0.25, 1.), rotation: Quat::from_rotation_z(-1. * 1.570796)},
-        texture: asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/person.png"),
+        texture: asset_server.load("../../projectAssets/person.png"),
         ..default()
         })
         .insert(Player{
@@ -120,10 +119,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
             if boxnum % 2 == 0 {
                 boxType = true;
                 inPlay = false;
-                texturePath = "C:/Programming/Python/Rust/Gather/projectAssets/banana.png";
+                texturePath = "../../projectAssets/banana.png";
             } else {
                 boxType = false;
-                texturePath = "C:/Programming/Python/Rust/Gather/projectAssets/orange.png";
+                texturePath = "../../projectAssets/orange.png";
     
             }
 
@@ -149,7 +148,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
                 TextSection::new(
                     "Score\n0",
                     TextStyle {
-                        font: asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/RetroChildRegular-7BnMl.ttf"),
+                        font: asset_server.load("../../projectAssets/RetroChildRegular-7BnMl.ttf"),
                         font_size: 60.0,
                         color: Color::BLACK,
                     },
@@ -212,7 +211,7 @@ fn tick(
     player.positiony = transform.translation.y;
 
     // Todo, Create logic for gaming = false to end game
-    if char_evr.is_empty() == true{
+    if char_evr.is_empty() == true || player.gaming == false{
         player.interacting = false;
     } else {
         for event in char_evr.iter() {
@@ -285,18 +284,18 @@ fn boxMovement(
                   };
 
             } else if boxy.laying == true {
-                // do nothing if the boxy is laying
+                // do nothing if the boxy is laying, check if the box is laying in a score zone
                 if transform.translation.y < -105. {
                     if transform.translation.x < -229. && transform.translation.x > -392. && boxy.box_type == false{
                         println!("Box Scored");
                         boxy.in_play = false;
                         player.score += 1;
-                        audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/1up.ogg"));
+                        audio.play(asset_server.load("../../projectAssets/1up.ogg"));
                     } else if  transform.translation.x < 369. && transform.translation.x > 152. && boxy.box_type == true{
                         println!("Box Scored");
                         boxy.in_play = false;
                         player.score += 1;
-                        audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/1up.ogg"));
+                        audio.play(asset_server.load("../../projectAssets/1up.ogg"));
                     }
                  // failsafe for if box is placed out of bounds
                 }else if transform.translation.y > 331. || transform.translation.y < -320. || transform.translation.x >  620. || transform.translation.x < -616.{
@@ -343,7 +342,7 @@ fn pickupBoxes(
             } else {
                 if (player.positionx - boxx.1.translation.x).abs().floor() < 30. && (player.positiony - boxx.1.translation.y).abs().floor() < 30. && player.carryingBox == false && boxx.0.in_play == true{
                         println!("Box {} picked up", boxx.0.box_value);
-                        audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/pickupbox.ogg"));
+                        audio.play(asset_server.load("../../projectAssets/pickupbox.ogg"));
                         boxx.0.picked_up = true;
                         boxx.0.laying = true;
                         player.carryingBox = true;
@@ -352,7 +351,7 @@ fn pickupBoxes(
                 }
                 else if player.carryingBox == true && boxx.0.picked_up == true{
                     println!("Box {} dropped {}", boxx.0.box_value, boxx.1.translation.x);
-                    audio.play(asset_server.load("C:/Programming/Python/Rust/Gather/projectAssets/dropbox.ogg"));
+                    audio.play(asset_server.load("../../projectAssets/dropbox.ogg"));
                     boxx.0.picked_up = false;
                     player.carryingBox = false;
                     pass = true
@@ -381,56 +380,57 @@ fn text_update_system(
 fn respawn_boxes(
     mut boxQuery: Query<(&mut Boxes, &mut Transform)>,
     mut timerQuery: Query<&mut Timer>,
+    mut playerquery: Query<&mut Player>,
     delta: Res<Time>,
 ){
 
     let mut timer = timerQuery.single_mut();
+    let player = playerquery.single_mut();
 
-    if  0. > timer.time{
+    if player.gaming {
+        if  0. > timer.time{
 
-        let mut outOfPlay: Vec<u8> = Vec::new();
-
-        boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
-            // for each box, if not in play; add to outOfPlay. 
-            if false == boxx.0.in_play{
-                outOfPlay.push(boxx.0.box_value);
-            }
-        });
-    
-    
-        let maxValue = outOfPlay.len() as f64;
-    
-        if 0. < maxValue{
-            let boxChosen =  (maxValue * f64::sin(rand::random::<f64>()) - 1.).round() as usize;
+            let mut outOfPlay: Vec<u8> = Vec::new();
     
             boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
-                if boxx.0.box_value == outOfPlay[boxChosen]{
-                    boxx.1.translation.x = -400.;
-                    boxx.1.translation.y = 330.;
-                    boxx.1.translation.z = 1.;
-                    boxx.0.in_play = true;
-                    boxx.0.laying = false;
-                    boxx.0.picked_up = false;
+                // for each box, if not in play; add to outOfPlay. 
+                if false == boxx.0.in_play{
+                    outOfPlay.push(boxx.0.box_value);
                 }
             });
-
-        timer.time = timer.delay;
         
-        // move the time delay down by 0.5 each time.
-        if 29 > timer.x{
-            timer.delay = 15. * f64::cos((3. * timer.x as f64) * 0.01745329);
-            timer.x += 1;
+        
+            let maxValue = outOfPlay.len() as f64;
+        
+            if 0. < maxValue{
+                let boxChosen =  (maxValue * f64::sin(rand::random::<f64>()) - 1.).round() as usize;
+        
+                boxQuery.for_each_mut(|mut boxx:(Mut<Boxes>, Mut<Transform>)|{
+                    if boxx.0.box_value == outOfPlay[boxChosen]{
+                        boxx.1.translation.x = -400.;
+                        boxx.1.translation.y = 330.;
+                        boxx.1.translation.z = 1.;
+                        boxx.0.in_play = true;
+                        boxx.0.laying = false;
+                        boxx.0.picked_up = false;
+                    }
+                });
+    
+            timer.time = timer.delay;
+            
+            // move the time delay down by 0.5 each time.
+            if 29 > timer.x{
+                timer.delay = 15. * f64::cos((3. * timer.x as f64) * 0.01745329);
+                timer.x += 1;
+            }
+    
+        // if timer is not counted down
+        } 
+    
+        }else{
+            timer.time -= delta.raw_delta_seconds_f64();
         }
-
-    // if timer is not counted down
-    } 
-
-    }else{
-        timer.time -= delta.raw_delta_seconds_f64();
+    
+        timer.count += delta.raw_delta_seconds_f64();
     }
-
-    timer.count += delta.raw_delta_seconds_f64();
-
-
-
 }
